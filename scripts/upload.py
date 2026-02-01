@@ -100,7 +100,7 @@ def upload_video(youtube, video_path, title, description, tags, category_id, pri
 
     media = MediaFileUpload(
         str(video_path),
-        chunksize=50*1024*1024,  # 50 MB chunks for faster uploads
+        chunksize=500*1024*1024,  # 500 MB chunks for faster uploads
         resumable=True,
         mimetype='video/mp4'
     )
@@ -233,7 +233,7 @@ def upload_video_direct(
 
     media = MediaFileUpload(
         str(video_path),
-        chunksize=50*1024*1024,  # 50 MB chunks for faster uploads
+        chunksize=500*1024*1024,  # 500 MB chunks for faster uploads
         resumable=True,
         mimetype='video/mp4'
     )

@@ -22,6 +22,9 @@ docs/sessions/
 # Temporary ingest file list
 .ingest_files.json
 
+# Upload queue state (for resume)
+.upload_queue.json
+
 # Chat logs
 claude-chats/
 

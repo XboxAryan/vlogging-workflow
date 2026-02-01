@@ -41,6 +41,78 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 
 console = Console()
 
+# Upload queue state file for resume functionality
+UPLOAD_QUEUE_FILE = ".upload_queue.json"
+
+
+def get_upload_queue_path(config: dict) -> Path:
+    """Get path to the upload queue state file."""
+    base_dir = Path(config['project']['base_dir'])
+    return base_dir / UPLOAD_QUEUE_FILE
+
+
+def save_upload_queue(items: list[YouTubeUploadItem], config: dict) -> Path:
+    """
+    Save upload queue to disk for resume capability.
+
+    Args:
+        items: List of YouTubeUploadItem objects to save
+        config: Configuration dictionary
+
+    Returns:
+        Path to the saved queue file
+    """
+    import json
+
+    queue_path = get_upload_queue_path(config)
+    data = {
+        "created_at": datetime.now().isoformat(),
+        "items": [item.to_dict() for item in items],
+    }
+    with open(queue_path, 'w') as f:
+        json.dump(data, f, indent=2)
+    return queue_path
+
+
+def load_upload_queue(config: dict) -> list[YouTubeUploadItem] | None:
+    """
+    Load pending upload queue from disk.
+
+    Args:
+        config: Configuration dictionary
+
+    Returns:
+        List of YouTubeUploadItem objects or None if no queue exists
+    """
+    import json
+
+    queue_path = get_upload_queue_path(config)
+    if not queue_path.exists():
+        return None
+
+    try:
+        with open(queue_path, 'r') as f:
+            data = json.load(f)
+        items = [YouTubeUploadItem.from_dict(item) for item in data.get('items', [])]
+        return items if items else None
+    except (json.JSONDecodeError, IOError, KeyError):
+        return None
+
+
+def clear_upload_queue(config: dict) -> None:
+    """Remove the upload queue file after successful completion."""
+    queue_path = get_upload_queue_path(config)
+    if queue_path.exists():
+        queue_path.unlink()
+
+
+def update_upload_queue(remaining_items: list[YouTubeUploadItem], config: dict) -> None:
+    """Update the queue file with remaining items after each successful upload."""
+    if remaining_items:
+        save_upload_queue(remaining_items, config)
+    else:
+        clear_upload_queue(config)
+
 
 def detect_terminal_image_support() -> str:
     """
@@ -1257,6 +1329,8 @@ def execute_upload_queue(items: list[YouTubeUploadItem], config: dict) -> list[Y
     """
     Execute uploads for all items in the queue.
 
+    Saves progress after each upload for resume capability.
+
     Args:
         items: List of YouTubeUploadItem objects
         config: Configuration dictionary
@@ -1268,8 +1342,13 @@ def execute_upload_queue(items: list[YouTubeUploadItem], config: dict) -> list[Y
     from upload import get_authenticated_service, upload_video_direct
 
     results = []
+    remaining_items = items.copy()
     yt_config = config.get('youtube_direct', {})
     made_for_kids = yt_config.get('made_for_kids', False)
+
+    # Save initial queue for resume capability
+    save_upload_queue(remaining_items, config)
+    console.print(f"[dim]Queue saved for resume capability ({len(items)} videos)[/dim]")
 
     console.print("\n[bold]Authenticating with YouTube...[/bold]")
     youtube = get_authenticated_service(config)
@@ -1300,15 +1379,49 @@ def execute_upload_queue(items: list[YouTubeUploadItem], config: dict) -> list[Y
             made_for_kids=made_for_kids,
         )
 
-        results.append(YouTubeUploadResult(
+        result = YouTubeUploadResult(
             video_path=item.video_path,
             success=upload_result['success'],
             video_id=upload_result.get('video_id'),
             video_url=upload_result.get('video_url'),
             error=upload_result.get('error'),
-        ))
+        )
+        results.append(result)
+
+        # Remove successful upload from remaining queue
+        if result.success:
+            remaining_items = [r for r in remaining_items if r.video_path != item.video_path]
+            update_upload_queue(remaining_items, config)
+
+    # Clear queue if all successful
+    if all(r.success for r in results):
+        clear_upload_queue(config)
 
     return results
+
+
+def _show_upload_results(results: list[YouTubeUploadResult], history_file: Path) -> None:
+    """Display upload results in a panel."""
+    console.print("\n")
+    success_count = sum(1 for r in results if r.success)
+    fail_count = len(results) - success_count
+
+    console.print(Panel.fit(
+        f"[bold]Upload Complete[/bold]\n\n"
+        f"Successful: [green]{success_count}[/green]\n"
+        f"Failed: [red]{fail_count}[/red]\n\n"
+        + "\n".join([
+            f"[green]✓[/green] {Path(r.video_path).name}: {r.video_url}"
+            if r.success else
+            f"[red]✗[/red] {Path(r.video_path).name}: {r.error}"
+            for r in results
+        ])
+        + f"\n\n[dim]History saved to: {history_file}[/dim]",
+        title="Results",
+        border_style="green" if fail_count == 0 else "yellow",
+    ))
+
+    questionary.press_any_key_to_continue(style=custom_style).ask()
 
 
 def youtube_upload_workflow(config):
@@ -1318,6 +1431,43 @@ def youtube_upload_workflow(config):
 
     console.print("[bold cyan]YouTube Direct Upload[/bold cyan]")
     console.print("[dim]Upload videos directly from SD card to YouTube[/dim]\n")
+
+    # Check for pending uploads to resume
+    pending_items = load_upload_queue(config)
+    if pending_items:
+        console.print(f"[yellow]Found {len(pending_items)} pending uploads from previous session[/yellow]\n")
+
+        # Show what's pending
+        for i, item in enumerate(pending_items, 1):
+            console.print(f"  {i}. {Path(item.video_path).name} - {item.title}")
+
+        console.print()
+
+        resume_choice = questionary.select(
+            "What would you like to do?",
+            choices=[
+                questionary.Choice(f"Resume uploading {len(pending_items)} videos", value="resume"),
+                questionary.Choice("Discard and start fresh", value="discard"),
+                questionary.Choice("Cancel", value="cancel"),
+            ],
+            style=custom_style,
+        ).ask()
+
+        if resume_choice == "cancel":
+            return
+        elif resume_choice == "resume":
+            # Skip to upload step with pending items
+            console.print("\n[bold]Resuming uploads...[/bold]")
+            results = execute_upload_queue(pending_items, config)
+
+            # Save history and show results
+            history_file = save_upload_history(results, pending_items, config)
+            _show_upload_results(results, history_file)
+            return
+        else:
+            # Discard pending queue
+            clear_upload_queue(config)
+            console.print("[dim]Previous queue discarded[/dim]\n")
 
     # Step 1: Scan SD card
     console.print("[bold]Step 1: Select Videos[/bold]\n")
@@ -1411,30 +1561,9 @@ def youtube_upload_workflow(config):
     console.print("\n[bold]Step 5: Uploading to YouTube[/bold]")
     results = execute_upload_queue(upload_items, config)
 
-    # Save upload history
+    # Save upload history and show results
     history_file = save_upload_history(results, upload_items, config)
-
-    # Show results
-    console.print("\n")
-    success_count = sum(1 for r in results if r.success)
-    fail_count = len(results) - success_count
-
-    console.print(Panel.fit(
-        f"[bold]Upload Complete[/bold]\n\n"
-        f"Successful: [green]{success_count}[/green]\n"
-        f"Failed: [red]{fail_count}[/red]\n\n"
-        + "\n".join([
-            f"[green]✓[/green] {Path(r.video_path).name}: {r.video_url}"
-            if r.success else
-            f"[red]✗[/red] {Path(r.video_path).name}: {r.error}"
-            for r in results
-        ])
-        + f"\n\n[dim]History saved to: {history_file}[/dim]",
-        title="Results",
-        border_style="green" if fail_count == 0 else "yellow",
-    ))
-
-    questionary.press_any_key_to_continue(style=custom_style).ask()
+    _show_upload_results(results, history_file)
 
 
 def show_settings(config):
