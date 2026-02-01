@@ -1,9 +1,12 @@
 # Vlogging Workflow Configuration
 # ================================
+# Copy this file to config.yaml and update with your settings:
+#   cp config.example.yaml config.yaml
 
 # SD Card Settings
 sd_card:
   # Volume name of your SD card (check in Finder when mounted)
+  # Example: "DJI_SD", "Untitled", "NO NAME"
   volume_name: "Untitled"
   # Path where DJI Osmo Pocket 3 stores footage
   footage_path: "DCIM/DJI_001"
@@ -16,8 +19,9 @@ sd_card:
 
 # Project Settings
 project:
-  # Base directory for this workflow
-  base_dir: "/Users/aryanbhatia/Documents/0DevProjects/vlogging-workflow"
+  # Base directory for this workflow (absolute path)
+  # This should be the root of your vlogging-workflow clone
+  base_dir: "/path/to/vlogging-workflow"
   # Target video duration in minutes
   target_duration_minutes: 9
   # Minimum clip duration to consider (seconds)
@@ -31,13 +35,17 @@ output:
   resolution: "original"
   # Frame rate
   fps: 30
-  # Video codec (h264, h264_videotoolbox for macOS GPU)
+  # Video codec
+  # - h264: Software encoding (slower, works everywhere)
+  # - h264_videotoolbox: macOS GPU encoding (faster)
+  # - h264_nvenc: NVIDIA GPU encoding
   codec: "h264_videotoolbox"
-  # Quality preset (ultrafast, fast, medium, slow, veryslow) - ignored for GPU encoding
+  # Quality preset (ultrafast, fast, medium, slow, veryslow)
+  # Note: Ignored for GPU encoding
   preset: "ultrafast"
   # CRF value (lower = better quality, larger file; 18-28 recommended)
   crf: 23
-  # Use hardware acceleration (auto, videotoolbox, nvenc, qsv, none)
+  # Hardware acceleration (auto, videotoolbox, nvenc, qsv, none)
   hw_accel: "videotoolbox"
 
 # YouTube Settings (for pipeline workflow)
@@ -48,7 +56,8 @@ youtube:
   title_template: "Daily Vlog - {date}"
   # Default description
   description: "Auto-generated daily vlog"
-  # Category ID (22 = People & Blogs)
+  # Category ID (22 = People & Blogs, 24 = Entertainment, 10 = Music)
+  # Full list: https://developers.google.com/youtube/v3/docs/videoCategories/list
   category_id: "22"
   # Tags
   tags:
@@ -78,12 +87,10 @@ ai:
   # Base URL (only needed for openrouter or custom endpoints)
   base_url: "https://openrouter.ai/api/v1"
   # Model to use for analysis
-  # Models with structured output support (recommended):
+  # Recommended models with structured output support:
   #   - google/gemini-2.0-flash-001 (free, best for structured JSON)
   #   - google/gemini-flash-1.5-8b (free)
-  #   - meta-llama/llama-3.1-8b-instruct (paid, reliable)
-  # Free models WITHOUT structured output support:
-  #   - meta-llama/llama-3.2-3b-instruct:free (unreliable JSON)
+  #   - anthropic/claude-3-haiku (paid, reliable)
   model: "google/gemini-2.0-flash-001"
   # Use structured JSON output (requires compatible model)
   structured_output: true
@@ -93,15 +100,23 @@ ai:
 
 # Transcription Settings
 transcription:
-  # whisper model size: tiny, base, small, medium, large
+  # Whisper model size: tiny, base, small, medium, large
+  # Larger = more accurate but slower and more memory
+  # - tiny: ~1GB RAM, fastest
+  # - base: ~1GB RAM, good balance
+  # - small: ~2GB RAM
+  # - medium: ~5GB RAM
+  # - large: ~10GB RAM, most accurate
   model_size: "base"
-  # Language (auto for auto-detect)
+  # Language (en, es, fr, de, etc. or auto for auto-detect)
   language: "en"
 
 # Cleanup Settings
 cleanup:
   # What to do with raw files after successful upload
-  # options: keep, archive, delete
+  # - keep: Don't delete anything
+  # - archive: Compress to archive folder
+  # - delete: Remove raw footage entirely
   action: "archive"
   # If archiving, compress to this format
   archive_format: "zip"
@@ -110,7 +125,7 @@ cleanup:
 
 # Music Settings
 music:
-  # Directory containing background music files
+  # Directory containing background music files (relative to base_dir)
   library_path: "music"
   # Default volume for background music (0.0-1.0)
   default_volume: 0.15
@@ -145,7 +160,7 @@ concurrency:
   workers:
     # FFprobe metadata extraction (lightweight, can have more workers)
     ffprobe: 6
-    # FFmpeg encoding (limited by hardware encoder, e.g. videotoolbox)
+    # FFmpeg encoding (limited by hardware encoder)
     ffmpeg: 4
     # Whisper transcription (memory intensive, ~2GB per worker)
     whisper: 2

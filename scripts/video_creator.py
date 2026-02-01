@@ -1193,6 +1193,66 @@ def review_upload_queue(items: list[YouTubeUploadItem]) -> list[YouTubeUploadIte
                 return []
 
 
+def save_upload_history(
+    results: list[YouTubeUploadResult],
+    items: list[YouTubeUploadItem],
+    config: dict
+) -> Path:
+    """
+    Save upload results to logs/upload_history.json.
+
+    Args:
+        results: List of YouTubeUploadResult objects
+        items: List of YouTubeUploadItem objects (for metadata)
+        config: Configuration dictionary
+
+    Returns:
+        Path to the history file
+    """
+    import json
+
+    base_dir = Path(config['project']['base_dir'])
+    logs_dir = base_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    history_file = logs_dir / "upload_history.json"
+
+    # Load existing history
+    history = []
+    if history_file.exists():
+        try:
+            with open(history_file, 'r') as f:
+                history = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            history = []
+
+    # Create item lookup by video_path
+    items_by_path = {item.video_path: item for item in items}
+
+    # Add new entries
+    timestamp = datetime.now().isoformat()
+    for result in results:
+        item = items_by_path.get(result.video_path)
+        entry = {
+            "timestamp": timestamp,
+            "filename": Path(result.video_path).name,
+            "video_path": result.video_path,
+            "success": result.success,
+            "video_id": result.video_id,
+            "video_url": result.video_url,
+            "title": item.title if item else None,
+            "privacy_status": item.privacy_status if item else None,
+            "tags": item.tags if item else [],
+            "error": result.error,
+        }
+        history.append(entry)
+
+    # Save updated history
+    with open(history_file, 'w') as f:
+        json.dump(history, f, indent=2)
+
+    return history_file
+
+
 def execute_upload_queue(items: list[YouTubeUploadItem], config: dict) -> list[YouTubeUploadResult]:
     """
     Execute uploads for all items in the queue.
@@ -1351,6 +1411,9 @@ def youtube_upload_workflow(config):
     console.print("\n[bold]Step 5: Uploading to YouTube[/bold]")
     results = execute_upload_queue(upload_items, config)
 
+    # Save upload history
+    history_file = save_upload_history(results, upload_items, config)
+
     # Show results
     console.print("\n")
     success_count = sum(1 for r in results if r.success)
@@ -1365,7 +1428,8 @@ def youtube_upload_workflow(config):
             if r.success else
             f"[red]✗[/red] {Path(r.video_path).name}: {r.error}"
             for r in results
-        ]),
+        ])
+        + f"\n\n[dim]History saved to: {history_file}[/dim]",
         title="Results",
         border_style="green" if fail_count == 0 else "yellow",
     ))

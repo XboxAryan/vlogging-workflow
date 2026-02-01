@@ -7,6 +7,9 @@ token.pickle
 *.pem
 *.key
 
+# User config (use config.example.yaml as template)
+config.yaml
+
 # ===================
 # Personal Data
 # ===================
@@ -80,8 +83,7 @@ music/*.flac
 # ===================
 # Logs & Cache
 # ===================
-logs/
-*.log
+logs/*.log
 .cache/
 *.cache
 
@@ -106,7 +108,7 @@ Thumbs.db
 *~
 
 # ===================
-# Keep these empty dirs
+# Keep these dirs/files
 # ===================
 !archive/.gitkeep
 !inbox/.gitkeep
@@ -114,3 +116,4 @@ Thumbs.db
 !music/.gitkeep
 !projects/.gitkeep
 !templates/.gitkeep
+!config.example.yaml
