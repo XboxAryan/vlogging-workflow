@@ -1,0 +1,153 @@
+# Vlogging Workflow Configuration
+# ================================
+
+# SD Card Settings
+sd_card:
+  # Volume name of your SD card (check in Finder when mounted)
+  volume_name: "Untitled"
+  # Path where DJI Osmo Pocket 3 stores footage
+  footage_path: "DCIM/DJI_001"
+  # File extensions to look for
+  extensions:
+    - ".MP4"
+    - ".mp4"
+    - ".MOV"
+    - ".mov"
+
+# Project Settings
+project:
+  # Base directory for this workflow
+  base_dir: "/Users/aryanbhatia/Documents/0DevProjects/vlogging-workflow"
+  # Target video duration in minutes
+  target_duration_minutes: 9
+  # Minimum clip duration to consider (seconds)
+  min_clip_duration: 3
+  # Maximum silence duration before cutting (seconds)
+  max_silence_duration: 2
+
+# Output Settings
+output:
+  # Resolution for final video (original, 4k, 1080p, 720p)
+  resolution: "original"
+  # Frame rate
+  fps: 30
+  # Video codec (h264, h264_videotoolbox for macOS GPU)
+  codec: "h264_videotoolbox"
+  # Quality preset (ultrafast, fast, medium, slow, veryslow) - ignored for GPU encoding
+  preset: "ultrafast"
+  # CRF value (lower = better quality, larger file; 18-28 recommended)
+  crf: 23
+  # Use hardware acceleration (auto, videotoolbox, nvenc, qsv, none)
+  hw_accel: "videotoolbox"
+
+# YouTube Settings (for pipeline workflow)
+youtube:
+  # Privacy status: private, unlisted, public
+  privacy_status: "private"
+  # Default title template (use {date} for date substitution)
+  title_template: "Daily Vlog - {date}"
+  # Default description
+  description: "Auto-generated daily vlog"
+  # Category ID (22 = People & Blogs)
+  category_id: "22"
+  # Tags
+  tags:
+    - "vlog"
+    - "daily"
+    - "journal"
+
+# YouTube Direct Upload Settings (for direct SD card upload workflow)
+youtube_direct:
+  # Default tags applied to all uploads
+  default_tags:
+    - "vlog"
+    - "video"
+  # Default category (22 = People & Blogs)
+  default_category_id: "22"
+  # Default privacy (private/unlisted/public)
+  default_privacy_status: "private"
+  # Footer appended to all descriptions (leave empty for none)
+  description_footer: ""
+  # Made for kids (required by YouTube API)
+  made_for_kids: false
+
+# AI Settings
+ai:
+  # Provider: anthropic, openai, or openrouter
+  provider: "openrouter"
+  # Base URL (only needed for openrouter or custom endpoints)
+  base_url: "https://openrouter.ai/api/v1"
+  # Model to use for analysis
+  # Models with structured output support (recommended):
+  #   - google/gemini-2.0-flash-001 (free, best for structured JSON)
+  #   - google/gemini-flash-1.5-8b (free)
+  #   - meta-llama/llama-3.1-8b-instruct (paid, reliable)
+  # Free models WITHOUT structured output support:
+  #   - meta-llama/llama-3.2-3b-instruct:free (unreliable JSON)
+  model: "google/gemini-2.0-flash-001"
+  # Use structured JSON output (requires compatible model)
+  structured_output: true
+  # Target highlights duration ratio (0.0-1.0)
+  # e.g., 0.3 means aim to keep ~30% of total footage
+  highlight_ratio: 0.3
+
+# Transcription Settings
+transcription:
+  # whisper model size: tiny, base, small, medium, large
+  model_size: "base"
+  # Language (auto for auto-detect)
+  language: "en"
+
+# Cleanup Settings
+cleanup:
+  # What to do with raw files after successful upload
+  # options: keep, archive, delete
+  action: "archive"
+  # If archiving, compress to this format
+  archive_format: "zip"
+  # Delete archives older than this many days (0 = never)
+  delete_archives_after_days: 30
+
+# Music Settings
+music:
+  # Directory containing background music files
+  library_path: "music"
+  # Default volume for background music (0.0-1.0)
+  default_volume: 0.15
+  # Fade in duration (seconds)
+  fade_in: 2
+  # Fade out duration (seconds)
+  fade_out: 2
+
+# Subtitle Settings
+subtitles:
+  # Font size for burned subtitles
+  font_size: 24
+  # Font color (FFmpeg format)
+  font_color: "white"
+  # Outline color for readability
+  outline_color: "black"
+  # Outline thickness
+  outline_width: 2
+  # Position: bottom, top, center
+  position: "bottom"
+  # Margin from edge (pixels)
+  margin: 40
+
+# Concurrency Settings
+# Controls parallel processing for improved performance
+concurrency:
+  # Enable parallel processing (set to false for sequential fallback)
+  enabled: true
+  # Cores to reserve for system (subtracted from available cores)
+  reserve_cores: 2
+  # Per-operation worker limits
+  workers:
+    # FFprobe metadata extraction (lightweight, can have more workers)
+    ffprobe: 6
+    # FFmpeg encoding (limited by hardware encoder, e.g. videotoolbox)
+    ffmpeg: 4
+    # Whisper transcription (memory intensive, ~2GB per worker)
+    whisper: 2
+    # File hashing for copy verification
+    hash: 4

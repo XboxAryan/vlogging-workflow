@@ -1,0 +1,31 @@
+# Vlogging Workflow Dependencies
+# ==============================
+
+# Configuration
+pyyaml>=6.0
+
+# Transcription
+openai-whisper>=20231117
+
+# AI Analysis
+anthropic>=0.18.0
+openai>=1.0.0
+
+# YouTube Upload
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
+# Video Processing (FFmpeg wrapper)
+ffmpeg-python>=0.2.0
+
+# Utilities
+python-dateutil>=2.8.2
+rich>=13.0.0
+watchdog>=3.0.0
+python-dotenv>=1.0.0
+
+# Video Creator Menu
+questionary>=2.0.0
+mutagen>=1.47.0
+pysrt>=1.1.2
